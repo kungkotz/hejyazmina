@@ -548,7 +548,7 @@
     "Envis, va?","Snyggt försök","Det här är min träning","Aldrig i livet",
     "Runt och runt","Yr än?","Säg ja nu","Bara en knapp funkar","Du vet vilken"
   ];
-  var dodges = 0, loose = false, lastAt = 0;
+  var dodges = 0, loose = false, lastAt = 0, yesGuard = null;
 
   function place(){
     var vv = window.visualViewport;
@@ -586,18 +586,23 @@
       dodges++;
       if(navigator.vibrate && !reduce) navigator.vibrate(12);
       no.textContent = LINES[(dodges - 1) % LINES.length];
-      yes.style.flexGrow = String(3 + Math.min(dodges, 14));
     }
+    /* Yes goes deaf for a moment so a stray tap can't land on it */
+    yes.style.pointerEvents = "none";
+    clearTimeout(yesGuard);
+    yesGuard = setTimeout(function(){ yes.style.pointerEvents = ""; }, 450);
     lastAt = now;
     place();
   }
 
-  ["pointerdown","click","keydown"].forEach(function(evt){
+  ["click","keydown"].forEach(function(evt){
     no.addEventListener(evt, function(e){
       if(evt === "keydown" && e.key !== "Enter" && e.key !== " ") return;
       dodge(e);
     }, {passive:false});
   });
+  /* swallow the tap so no phantom click reaches anything underneath */
+  no.addEventListener("touchend", function(e){ e.preventDefault(); }, {passive:false});
   if(window.matchMedia("(hover:hover)").matches) no.addEventListener("mouseenter", dodge);
   window.addEventListener("resize", function(){ if(loose && !answered) place(); });
 
@@ -619,6 +624,7 @@
 
   yes.addEventListener("click", function(){
     if(answered) return;
+    if(Date.now() - lastAt < 600) return;   /* that was the Nej tap, not a Ja */
     answered = true;
     no.classList.add("is-hidden");
     no.tabIndex = -1;
