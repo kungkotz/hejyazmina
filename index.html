@@ -133,6 +133,9 @@
   }
   .iata small{display:block;font-size:9px;letter-spacing:.12em;color:var(--ink-soft);font-weight:500;margin-top:4px}
   .iata--to{text-align:right}
+  .iata--to small{max-width:150px;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .own{margin-top:9px}
+  .own[hidden]{display:none}
   .path{position:relative;height:20px}
   .path::before{
     content:"";position:absolute;top:9px;left:0;right:0;height:1px;
@@ -244,6 +247,7 @@
     transition:border-color .2s ease,background .2s ease,color .2s ease;
   }
   .chip small{display:block;font-weight:500;font-size:10px;color:var(--ink-soft);letter-spacing:.02em}
+  .chip--wide{flex:1 1 100%;padding:12px 8px}
   .chip.is-picked{border-color:var(--wine);background:var(--wine);color:#FBF2E9}
   .chip.is-picked small{color:rgba(251,242,233,.75)}
   .chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -399,6 +403,18 @@
               <span class="opt__code">LUN</span>
               <span><span class="opt__name">Lunch</span><span class="opt__note">Dagsljus, enkelt, någonstans soligt</span></span>
             </button>
+            <button class="opt" type="button" data-plan="ÖVERRASKNING" data-code="SUR" data-gate="1" data-note="Du bestämmer allt, jag dyker bara upp" data-time="19:30">
+              <span class="opt__code">SUR</span>
+              <span><span class="opt__name">Överraska mig</span><span class="opt__note">Du bestämmer — jag fixar ingenting</span></span>
+            </button>
+            <button class="opt" type="button" id="opt-own">
+              <span class="opt__code">+</span>
+              <span><span class="opt__name">Något eget</span><span class="opt__note">Har du en bättre idé? Skriv den här</span></span>
+            </button>
+          </div>
+          <div class="own" id="own-wrap" hidden>
+            <input class="datefield" id="own-text" maxlength="24" placeholder="t.ex. minigolf, bio, promenad" aria-label="Ditt eget förslag">
+            <button class="go" id="own-go" type="button" disabled>Välj det</button>
           </div>
         </div>
 
@@ -408,6 +424,10 @@
           <input class="datefield" type="date" id="custom-date" aria-label="Välj ett annat datum">
           <div class="sub">Avgångstid</div>
           <div class="chips" id="time-chips"></div>
+          <div class="sub">Eller</div>
+          <div class="chips">
+            <button class="chip chip--wide" id="open-date" type="button">Vet inte än<small>öppen biljett — vi bestämmer dagen sen</small></button>
+          </div>
           <button class="go" id="confirm" type="button" disabled>Bekräfta bokningen</button>
           <button class="back" id="back-plan" type="button">byt plan</button>
         </div>
@@ -652,20 +672,48 @@
     showStep("step-plan", "Bra svar. Vad gör vi?");
   });
 
-  Array.prototype.forEach.call(document.querySelectorAll(".opt"), function(btn){
+  function choosePlan(plan, code, gate, note, time){
+    picked.plan = plan;
+    picked.code = code;
+    picked.note = note;
+    picked.time = time;
+    fill("f-to-code", code);
+    $("f-to-city").textContent = plan;
+    fill("f-gate", gate);
+    buildTimeChips(time);
+    rollBoard("VÄLJ EN DAG");
+    showStep("step-when", "Perfekt. När passar det?");
+    updateConfirm();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".opt[data-plan]"), function(btn){
     btn.addEventListener("click", function(){
-      picked.plan = btn.dataset.plan;
-      picked.code = btn.dataset.code;
-      picked.note = btn.dataset.note;
-      picked.time = btn.dataset.time;
-      fill("f-to-code", btn.dataset.code);
-      $("f-to-city").textContent = picked.plan;
-      fill("f-gate", btn.dataset.gate);
-      buildTimeChips(btn.dataset.time);
-      rollBoard("VÄLJ EN DAG");
-      showStep("step-when", "Perfekt. När passar det?");
-      updateConfirm();
+      choosePlan(btn.dataset.plan, btn.dataset.code, btn.dataset.gate, btn.dataset.note, btn.dataset.time);
     });
+  });
+
+  /* her own idea → a made-up destination code, like any real route */
+  function codeFrom(text){
+    var t = text.toUpperCase()
+      .replace(/[ÅÄ]/g,"A").replace(/Ö/g,"O").replace(/É/g,"E")
+      .replace(/[^A-Z]/g,"");
+    return (t + "XXX").slice(0,3);
+  }
+
+  $("opt-own").addEventListener("click", function(){
+    $("own-wrap").hidden = false;
+    $("own-text").focus();
+  });
+  $("own-text").addEventListener("input", function(){
+    $("own-go").disabled = this.value.trim().length < 2;
+  });
+  $("own-text").addEventListener("keydown", function(e){
+    if(e.key === "Enter" && !$("own-go").disabled) $("own-go").click();
+  });
+  $("own-go").addEventListener("click", function(){
+    var v = $("own-text").value.trim();
+    if(v.length < 2) return;
+    choosePlan(v.toUpperCase(), codeFrom(v), "9", "Ditt eget förslag: " + v, "19:30");
   });
 
   $("back-plan").addEventListener("click", function(){
@@ -710,7 +758,27 @@
     setDate(new Date(+p[0], +p[1]-1, +p[2]));
   });
 
+  var openTicket = false;
+
+  function clearOpen(){
+    openTicket = false;
+    $("open-date").classList.remove("is-picked");
+  }
+
+  $("open-date").addEventListener("click", function(){
+    openTicket = true;
+    this.classList.add("is-picked");
+    clearPicked(dayChips); clearPicked(timeChips);
+    $("custom-date").value = "";
+    picked.date = null; picked.time = null;
+    fill("f-date", "OPEN");
+    fill("f-time", "TBD");
+    $("f-flight").textContent = "TU OPEN";
+    updateConfirm();
+  });
+
   function setDate(d){
+    clearOpen();
     picked.date = d;
     fill("f-date", d.getDate() + " " + MON[d.getMonth()]);
     /* flight number from the day itself, like a real schedule */
@@ -727,6 +795,7 @@
       var c = document.createElement("button");
       c.type = "button"; c.className = "chip"; c.textContent = t;
       c.addEventListener("click", function(){
+        clearOpen();
         clearPicked(timeChips); c.classList.add("is-picked");
         picked.time = t;
         fill("f-time", t);
@@ -739,20 +808,36 @@
     Array.prototype.forEach.call(box.querySelectorAll(".chip"), function(c){ c.classList.remove("is-picked"); });
   }
   function updateConfirm(){
-    $("confirm").disabled = !(picked.plan && picked.date && picked.time);
+    $("confirm").disabled = !(picked.plan && (openTicket || (picked.date && picked.time)));
   }
 
   var summary = "";
 
   /* ---------- confirm ---------- */
   $("confirm").addEventListener("click", function(){
+    var plan = picked.plan.charAt(0) + picked.plan.slice(1).toLowerCase();
+
+    if(openTicket){
+      summary = "Det är en dejt ♥ " + plan + " — dagen bestämmer vi senare. " +
+                "VXO→" + picked.code + ", öppen biljett, bokningsref " + PNR + ".";
+      $("final-meta").textContent = plan + " — dagen bestämmer vi senare";
+      $("f-status").textContent = "OPEN TICKET";
+      $("barcode-no").textContent = "TU OPEN · " + FROM_CODE + picked.code + " · " + PNR;
+      $("stamp-sub").textContent = "dagen bestäms senare";
+      $("ics").style.display = "none";
+      rollBoard("VI SES SNART", function(){ $("stamp").classList.add("is-on"); });
+      showStep("step-done", "Platsen är din. Dagen fyller vi i sen.");
+      burst();
+      return;
+    }
+
     var d = picked.date;
     var pretty = DAYS[d.getDay()].charAt(0) + DAYS[d.getDay()].slice(1).toLowerCase() +
                  " " + d.getDate() + " " + MON[d.getMonth()].toLowerCase() + " · " + picked.time;
-    summary = "Det är en dejt ♥ " + picked.plan.charAt(0) + picked.plan.slice(1).toLowerCase() +
-              ", " + pretty + ". Flight TU " + pad2(d.getDate()) + pad2(d.getMonth()+1) +
+    summary = "Det är en dejt ♥ " + plan + ", " + pretty +
+              ". Flight TU " + pad2(d.getDate()) + pad2(d.getMonth()+1) +
               ", VXO→" + picked.code + ", bokningsref " + PNR + ".";
-    $("final-meta").textContent = picked.plan.charAt(0) + picked.plan.slice(1).toLowerCase() + " — " + pretty;
+    $("final-meta").textContent = plan + " — " + pretty;
     $("f-status").textContent = "CHECKED IN";
     $("barcode-no").textContent = "TU " + pad2(d.getDate()) + pad2(d.getMonth()+1) + " · " + FROM_CODE + picked.code + " · " + PNR;
     $("stamp-sub").textContent = "vi ses där";
