@@ -173,6 +173,8 @@
   .strip2 > div{padding:9px 6px;border-right:1px solid var(--card-edge);text-align:center}
   .strip2 > div:last-child{border-right:none}
   .strip2 .val{font-size:15px}
+  .baggage{display:flex;align-items:center;justify-content:center;gap:6px}
+  .cupid{font-size:17px;line-height:1;flex:0 0 auto}
 
   /* tear */
   .tear{position:relative;height:20px}
@@ -200,7 +202,7 @@
     font-family:"Archivo Narrow",system-ui,sans-serif;font-weight:700;
     text-transform:uppercase;letter-spacing:.08em;border:none;border-radius:3px;
     padding:15px 10px;font-size:16px;cursor:pointer;
-    transition:transform .18s cubic-bezier(.16,1,.3,1), flex-grow .35s cubic-bezier(.16,1,.3,1);
+    transition:transform .18s cubic-bezier(.16,1,.3,1);
   }
   .btn:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
   .btn--yes{flex:3 1 0;background:var(--wine);color:#FBF2E9;box-shadow:0 3px 0 #5F172E}
@@ -363,7 +365,9 @@
       <div class="strip2">
         <div><div class="lbl">Booking ref</div><div class="val" id="f-pnr">—</div></div>
         <div><div class="lbl">Seq</div><div class="val">001</div></div>
-        <div><div class="lbl">Baggage</div><div class="val">1 HEART</div></div>
+        <div><div class="lbl">Baggage</div>
+          <div class="val val--wine baggage" title="1 hjärta med Amors pil"><span>1</span><span class="cupid">💘</span></div>
+        </div>
       </div>
 
       <div class="tear">
@@ -574,6 +578,11 @@
 
     if(!loose){
       var r = no.getBoundingClientRect();
+      /* freeze Ja at its current size — otherwise flex-grow expands it
+         into the space Nej just vacated */
+      var yr0 = yes.getBoundingClientRect();
+      yes.style.transition = "none";
+      yes.style.flex = "0 0 " + Math.round(yr0.width) + "px";
       zone.appendChild(no);
       no.classList.add("is-loose");
       no.style.left = r.left + "px";
