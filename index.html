@@ -595,15 +595,24 @@
     place();
   }
 
-  ["click","keydown"].forEach(function(evt){
-    no.addEventListener(evt, function(e){
-      if(evt === "keydown" && e.key !== "Enter" && e.key !== " ") return;
-      dodge(e);
-    }, {passive:false});
+  var touchedAt = 0;
+
+  /* phone: act on the touch itself, and block the phantom click it would spawn */
+  no.addEventListener("touchend", function(e){
+    e.preventDefault();
+    touchedAt = Date.now();
+    dodge(e);
+  }, {passive:false});
+
+  /* mouse / keyboard fallback */
+  no.addEventListener("click", function(e){
+    if(Date.now() - touchedAt < 700) return;   /* already handled as a touch */
+    dodge(e);
   });
-  /* swallow the tap so no phantom click reaches anything underneath */
-  no.addEventListener("touchend", function(e){ e.preventDefault(); }, {passive:false});
-  if(window.matchMedia("(hover:hover)").matches) no.addEventListener("mouseenter", dodge);
+  no.addEventListener("keydown", function(e){
+    if(e.key !== "Enter" && e.key !== " ") return;
+    dodge(e);
+  });
   window.addEventListener("resize", function(){ if(loose && !answered) place(); });
 
   /* ---------- flow ---------- */
